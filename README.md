@@ -21,10 +21,15 @@ Harness Evolution cycles are prone to three failure modes:
 2. **Collusion between Evolution and Critic** — if both run the same
    model, they reinforce each other's blind spots. A diverse-model
    setup breaks this.
-3. **Skill loader crash** — Hermes cron jobs cannot reliably load
-   skills by qualified path name. Skills must be loaded at runtime
-   from disk via `read_file` / `terminal`, not passed via the
-   `skills=[...]` parameter.
+3. **Skill loader caveat** — In some Hermes cron setups (especially
+   older v0.x builds and certain v1.x pre-release lines), the
+   `skills=[...]` parameter on `cron create` has been observed to fail
+   with qualified-name lookups. The framework's prompts therefore
+   load skills at runtime via `read_file` / `terminal` rather than
+   relying on the qualified-path loader. This is a deliberate
+   portability hedge, not a Hermes bug — newer versions generally
+   handle `skills=[...]` correctly. If your Hermes version is known
+   to work with the native loader, you may pass `--skills` directly.
 
 This framework ships patterns that mitigate all three.
 
@@ -241,6 +246,47 @@ authorised agent (Harness Evolution), provided:
 
 If any of these is missing, the amendment is invalid and should be
 reverted (Article V: Transparency of Influence).
+
+## Changelog
+
+### v1.1 — Hardening (2026-07-26)
+
+Address the review by [@hendrixfreire](https://github.com/hendrixfreire)
+in [hermes-self-evolution-review](https://github.com/hendrixfreire/hermes-self-evolution-review):
+
+- **F1 (review §1.5):** confirmed and documented — `scripts/execution-loop.sh`
+  never passes the LLM-written `DETAIL` field to `bash`. The `eval` arm
+  was removed in v2; this release makes the SECURITY comment explicit so
+  the design choice is visible to contributors.
+- **F2 (review §1.3):** `install.sh` now creates every facts file
+  referenced by prompts or scripts on first run (was missing
+  `enforcement-log.md`, `learning-log.md`, and a few others — first-cycle
+  crash fixed).
+- **F4 (review §1.4):** `scripts/execution-loop.sh` drops the hardcoded
+  `known_arms` list (pure maintenance debt). `_print_unused_arms()` now
+  reports only arms that have actually been dispatched, sourced from
+  `DISPATCH_STATE_FILE`.
+- **F5 (review §1.8):** portable `date` parser in
+  `_print_unused_arms()` — GNU `date -d`, BSD `date -j -f`, then
+  `stat` mtime fallback. Silent-failure path removed.
+- **F6 (review §1.7):** README §"Why this exists" softened — the skill
+  loader claim was overstated. Runtime loading is a deliberate
+  portability hedge, not a Hermes bug.
+
+Items in the review that this release **does not** change:
+
+- `eval`-of-markdown (§1.5): already absent in v2; the SECURITY comment
+  in `execution-loop.sh` makes this permanent by design.
+- `SELF_SUPERVISED` / proposal-only-amendment (§1.6): the default
+  (`PROPOSAL_ONLY_AMEND=true`) already requires a human git commit for
+  constitutional amendments. The "agent amends its own constitution"
+  risk is closed.
+- Gardener cron (§4 redesign): kept. The reviewer proposed deleting it
+  to simplify; we disagree — agent entropy is a real long-term risk and
+  Gardener's "surface dormant skills for human archival" boundary is
+  the right one (Constitution Article IV: anti-fragility over comfort).
+- `SELF_SUPERVISED` rename (`PROPOSAL_ONLY_AMEND`): not changed — the
+  install-time flag name reflects what the flag actually controls.
 
 ## License
 
