@@ -33,6 +33,25 @@ Harness Evolution cycles are prone to three failure modes:
 
 This framework ships patterns that mitigate all three.
 
+## How this differs from Hermes' built-in learning loop
+
+Hermes already ships a built-in learning loop (skill creation from
+experience, in-session skill improvement, persistent user modelling).
+That's not the problem this framework solves — `hermes-self-evolution`
+operates on a different mechanism:
+
+| Aspect | Hermes built-in learning loop | hermes-self-evolution |
+|---|---|---|
+| **Trigger timing** | In-session (while the user is interacting with the agent) | Offline (via cron-scheduled jobs when the user is absent) |
+| **Learning focus** | Creating new skills and enhancing existing ones | Identifying friction from witness logs and updating capabilities in compliance with the Constitution |
+| **Execution method** | LLM-curated during active agent usage | Four distinct cron loops (Evolution, Critic, Verifier, Gardener) using diverse models and falsifiable predictions |
+| **Safety governance** | No formal amendment protocol (in-session, LLM-curated) | 6-Article Constitution, proposal-only amendments, mandatory human approval |
+| **Output guarantee** | Skill improvement happens only on demand | Every cycle MUST produce a real report — even on no-op. Witness log is append-only ground truth. |
+
+The two mechanisms are complementary: the built-in loop improves the
+agent *during* use, while `hermes-self-evolution` audits and adjusts
+the agent *between* sessions under a formal governance protocol.
+
 ## About
 
 Built by [@erenciracioglu](https://x.com/erenciracioglu). If you install
@@ -248,6 +267,26 @@ If any of these is missing, the amendment is invalid and should be
 reverted (Article V: Transparency of Influence).
 
 ## Changelog
+
+### v1.2 — Clarify (2026-07-26)
+
+Add a side-by-side comparison table to README (§"How this differs from
+Hermes' built-in learning loop") in response to a recurring reader
+question: "Hermes already has a learning loop, why do we need this?"
+
+The two mechanisms are complementary, not redundant:
+
+- Hermes' built-in loop improves the agent **in-session** (skill
+  creation + improvement during use).
+- `hermes-self-evolution` audits and adjusts the agent **between
+  sessions** under a formal governance protocol (Constitution +
+  diverse-model Critic + falsifiable predictions).
+
+Also softens the previous framing of Hermes' safety posture from
+"None" to "No formal amendment protocol (in-session, LLM-curated)" —
+the built-in loop has implicit safety through in-session LLM
+judgement; it just lacks the formal amendment protocol this
+framework provides.
 
 ### v1.1 — Hardening (2026-07-26)
 
