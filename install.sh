@@ -111,10 +111,13 @@ if [[ $missing -gt 0 ]]; then
     exit 1
 fi
 
-# 3. Touch runtime log files referenced by execution-loop.sh and prompts
+# 3. Touch runtime log files referenced by execution-loop.sh and prompts.
+# v1.1: every file referenced by a prompt or script MUST exist on first run.
+# See hendrixfreire/hermes-self-evolution-review §1.3 (missing files).
 for f in recommendation.md witness-log.md predictions.md prediction-outcomes.md \
          harness-state.md cleanup-log.md credential-health.log \
-         critique-log.md decision-log.md execution-log.md amendment-proposal.md; do
+         critique-log.md decision-log.md execution-log.md amendment-proposal.md \
+         enforcement-log.md learning-log.md; do
     [[ -f "${HARNESS_DIR}/facts/${f}" ]] || touch "${HARNESS_DIR}/facts/${f}"
 done
 

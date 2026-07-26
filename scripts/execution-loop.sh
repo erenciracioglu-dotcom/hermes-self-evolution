@@ -103,26 +103,27 @@ _print_unused_arms() {
     local now_epoch=$(date +%s)
     local threshold=$((DISPATCH_UNUSED_DAYS * 86400))
     local unused_count=0
-    local known_arms="update_script create_skill test_mechanism analyze skill-automation cleanup_and_integration_test bash_command generic_action facts-cleanup create_and_test integrate_config smoke_test facts_cleanup_v2 skill_version_registry version_registry version_bump skill_automation_v3 skill-automation-v3 skill_automation skill-automation-no-version backup_scheduler backup-scheduler $DISCOVERED_ARMS"
-    for arm in $known_arms; do
+    # v1.1: drop the hardcoded known_arms string (review §1.4 — pure maintenance
+    # debt). We only report arms we have actually dispatched, sourced from
+    # DISPATCH_STATE_FILE itself.
+    local dispatched_arms
+    dispatched_arms=$(awk 'NF >= 3 && $1 !~ /^#/ { print $1 }' "$DISPATCH_STATE_FILE" | sort -u)
+    for arm in $dispatched_arms; do
         [[ -z "$arm" ]] && continue
-        if ! grep -q "^${arm} " "$DISPATCH_STATE_FILE" 2>/dev/null; then
-            log_warn "observability: arm '$arm' NEVER dispatched (cold)"
+        local last_dispatched=$(grep "^${arm} " "$DISPATCH_STATE_FILE" | awk '{print $2}' | tail -1)
+        local last_epoch
+        # v1.1: portable date parser — GNU `date -d`, BSD `date -j -f`, then
+        # stat mtime fallback. Silent failure mode removed (review §1.8).
+        last_epoch=$(date -d "$last_dispatched" +%s 2>/dev/null) \
+            || last_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S%z" "$last_dispatched" +%s 2>/dev/null) \
+            || last_epoch=$(stat -c %Y "$DISPATCH_STATE_FILE" 2>/dev/null) \
+            || last_epoch=$(stat -f %m "$DISPATCH_STATE_FILE" 2>/dev/null) \
+            || { log_warn "observability: cannot parse timestamp for arm '$arm' — skipping"; continue; }
+        local age=$((now_epoch - last_epoch))
+        if [[ $age -gt $threshold ]]; then
+            local days=$((age / 86400))
+            log_warn "observability: arm '$arm' stale (${days}d since last dispatch)"
             unused_count=$((unused_count + 1))
-        else
-            local last_dispatched=$(grep "^${arm} " "$DISPATCH_STATE_FILE" | awk '{print $2}')
-            local last_epoch
-            if last_epoch=$(date -d "$last_dispatched" +%s 2>/dev/null); then
-                :
-            else
-                last_epoch=$(stat -c %Y "$DISPATCH_STATE_FILE" 2>/dev/null || stat -f %m "$DISPATCH_STATE_FILE" 2>/dev/null)
-            fi
-            local age=$((now_epoch - last_epoch))
-            if [[ $age -gt $threshold ]]; then
-                local days=$((age / 86400))
-                log_warn "observability: arm '$arm' stale (${days}d since last dispatch)"
-                unused_count=$((unused_count + 1))
-            fi
         fi
     done
     if [[ $unused_count -eq 0 ]]; then
@@ -221,10 +222,14 @@ execute_action() {
 
     _record_dispatch "$action_type"
 
-    # SECURITY: DETAIL field is NEVER passed to bash. The LLM's free-text
-    # recommendation cannot become a shell command. Each action_type maps
-    # to a fixed call into skill-automation.sh or a fixed dispatcher script.
-    # To add a new action, edit the case statement below — never trust DETAIL.
+    # SECURITY (v1.1, hardened from v1): the LLM-written DETAIL field in
+        # facts/recommendation.md is NEVER passed to bash. There is no `eval`
+        # arm in this dispatcher. Each action_type maps to a fixed call into
+        # skill-automation.sh or a fixed dispatcher script. To add a new action,
+        # edit this case statement — never trust DETAIL.
+        # (hendrixfreire/hermes-self-evolution-review §1.5 fix was already
+        # applied in v2; this comment exists so the design choice is visible
+        # to any future contributor who reads the file.)
 
     case "$action_type" in
         bash_command|generic_action|skill_automation*)
