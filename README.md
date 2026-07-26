@@ -134,7 +134,7 @@ Override any default via env vars before `install.sh`:
 | `CRON_CRITIC` | `2 */4 * * *` | Critic runs every 4 hours, offset 2h from Evolution |
 | `CRON_VERIFIER` | `0 4 */2 * *` | Verifier runs every 2 days at 04:00 |
 | `CRON_GARDENER` | `0 4 1,8,15,22 * *` | Gardener runs every 4 days at 04:00 |
-| `SELF_SUPERVISED` | `true` | If true, Evolution may amend `constitution.md` under Article VI traceability. Set to `false` to require human-only amendments. |
+| `PROPOSAL_ONLY_AMEND` | `true` | If `true` (default), agents may only *propose* constitutional amendments into `facts/amendment-proposal.md`; a human must `git commit` them. Set to `false` only if you have a separate audit mechanism (e.g. signed commits). Replaces the old `SELF_SUPERVISED` flag. |
 
 ### Model diversity — anti-collusion
 
@@ -155,13 +155,14 @@ operator or an authorised agent (Harness Evolution), provided the
 amendment is **traceable**: a proposal in `facts/amendment-proposal.md`,
 a commit, and a Telegram notification, all in the same cycle.
 
-Our recommendation (informational, not binding): **keep `SELF_SUPERVISED=true`
-for development, set it to `false` once the harness is stable.** The
-default is `true` because Evolution cycles are blocked from doing
-useful work if every constitutional change needs a human commit. But
-"constitutional change" includes subtle things like the gate protocol,
-the [SILENT] rule, and the witness anchor requirement. If those have
-settled, locking amendments to humans adds an extra safety rail.
+Our recommendation (informational, not binding): **keep
+`PROPOSAL_ONLY_AMEND=true` (the default) — agents draft proposals, humans
+commit them.** Set it to `false` only if you have a separate audit
+mechanism (e.g. signed commits from a trusted identity). Note that
+`PROPOSAL_ONLY_AMEND=true` does NOT block Evolution cycles — agents can
+still produce recommendations, predictions, and reports; only direct
+`git commit` to `constitution.md` is gated to humans. (This flag replaces
+the older `SELF_SUPERVISED`; see the config table above.)
 
 ## Troubleshooting
 
@@ -176,11 +177,13 @@ ${HERMES_BIN} cron list
 If `last_status=ok` but Telegram received nothing, the issue is
 almost always one of:
 
-1. **Skill loader qualified-name crash.** If you passed
-   `--skills=['software-development/known-failure-triage']` to
-   `cron create`, the loader may silently fail. The framework's
-   prompts deliberately use `terminal` + `read_file` to load skills
-   at runtime. Re-create the cron jobs without `--skills`.
+1. **Skill loader qualified-name lookup.** On some Hermes builds,
+   passing `--skills=['software-development/known-failure-triage']` to
+   `cron create` does not resolve the qualified name. The framework's
+   prompts deliberately use `terminal` + `read_file` to load skills at
+   runtime as a portability hedge. On Hermes versions where `--skills`
+   resolves qualified names correctly, you may pass it directly instead
+   of loading from disk.
 2. **Telegram bot missing `chat_id`.** The `cron create` call needs
    `--deliver telegram:<CHAT_ID>`. Verify with `${HERMES_BIN} config show`.
 3. **Prompt produces `[SILENT]`.** The prompt must produce a real
