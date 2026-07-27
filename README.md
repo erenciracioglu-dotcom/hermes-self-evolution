@@ -271,6 +271,17 @@ reverted (Article V: Transparency of Influence).
 
 ## Changelog
 
+### v1.3 — Doc correction (2026-07-26)
+
+- README §Changelog: correct the v1.1 entry's note about
+  `PROPOSAL_ONLY_AMEND` rename — the rename *was* applied, in PR #3
+  (hendrixfreire). `SELF_SUPERVISED` is now gone from README's env
+  table and self-supervised section; the flag in install.sh was
+  always `PROPOSAL_ONLY_AMEND`.
+- The earlier "intentionally not changed" note in v1.1 was wrong;
+  the rename should have been part of v1.1. This entry documents
+  the actual sequence of events for future readers.
+
 ### v1.2 — Clarify (2026-07-26)
 
 Add a side-by-side comparison table to README (§"How this differs from
