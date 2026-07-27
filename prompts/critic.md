@@ -13,9 +13,12 @@ a problem the user hasn't actually felt).
 == GATE — read Constitution first ==
 1. Read `${HERMES_HOME}/harness/constitution.md` (auto-loaded via skill loader).
 2. **Constitutional gate.** In proposal-only mode (`PROPOSAL_ONLY_AMEND=true`, the default), a missing or invalid GPG signature is a WARNING, not a halt — the human operator may run unsigned. In permissive mode (`PROPOSAL_ONLY_AMEND=false`), GPG signature on `constitution.md` MUST be valid; otherwise HALT with "GATE HALT: constitution signature invalid". You can check the active mode by reading the `harness-state.md` field `PROPOSAL_ONLY_AMEND`.
-3. Load `${HERMES_HOME}/harness/skills/harness-critic.md` via `skill_view`
-   (do NOT pass `skills=[...]` to the cron job — qualified-name loading
-   fails; load skills from disk at runtime instead).
+3. Load `${HERMES_HOME}/harness/skills/harness-critic.md` via `skill_view`.
+   The framework loads skills at runtime from disk (`skill_view` /
+   `read_file`) as a portability hedge — on some Hermes builds the
+   `--skills` / `skills=[...]` parameter does not resolve qualified names.
+   On versions where it does, you may pass skills to the cron job directly
+   instead. See README §"Why this exists" item 3.
 
 == Workflow ==
 

@@ -132,29 +132,62 @@ create_or_skip() {
     local provider="$4"
     local prompt_file="$5"
 
-    if ${HERMES_BIN} cron list 2>/dev/null | grep -q "name: ${name}"; then
+    # Idempotency: match the real `cron list` output format, which prints
+    # "    Name:      <name>" (capital "Name:", multiple spaces). The previous
+    # `grep -q "name: ${name}"` (lowercase, single space) never matched, so
+    # re-running install.sh would create duplicate jobs.
+    if ${HERMES_BIN} cron list 2>/dev/null | grep -Eq "Name:[[:space:]]+${name}\b"; then
         echo "  SKIP: ${name} already exists"
         return 0
     fi
 
-    # Inline the prompt body — Hermes v0.19.0 cron.create does not support
-    # --prompt-file. We read the file and pass it via --prompt instead.
+    # The prompt is passed as a POSITIONAL argument. The Hermes cron CLI does
+    # not accept --prompt or --prompt-file.
     local prompt_body
     prompt_body=$(cat "${HERMES_HOME}/${prompt_file}")
 
-    # HERMES_HOME, CHAT_ID, and PROPOSAL_ONLY_AMEND are exported so the
-    # prompt body can reference them at run time.
-    HERMES_HOME="${HERMES_HOME}" \
-    CHAT_ID="${CHAT_ID}" \
-    PROPOSAL_ONLY_AMEND="${PROPOSAL_ONLY_AMEND}" \
-    HERMES_BIN="${HERMES_BIN}" \
-    ${HERMES_BIN} cron create \
-        --name "${name}" \
-        --schedule "${schedule}" \
-        --model "${model}" \
-        --provider "${provider}" \
-        --prompt "${prompt_body}" \
-        --deliver "telegram:${CHAT_ID}"
+    # Hermes `cron create` signature (verified against current CLI):
+    #   hermes cron create [--name NAME] [--deliver DELIVER] [--skill SKILLS]
+    #                      [--script SCRIPT] [--repeat N] [--no-agent]
+    #                      [--workdir WORKDIR]  schedule [prompt]
+    # `schedule` and `prompt` are POSITIONAL. The CLI does NOT accept
+    # --schedule / --prompt / --prompt-file, and (currently) has no --model
+    # or --provider flag.
+    #
+    # Per-job model pinning (required for anti-collusion: MODEL_CRITIC must
+    # differ from MODEL_EVOLUTION) is NOT exposed on the cron CLI in current
+    # Hermes versions. Supported paths to actually pin a model per job:
+    #   1. Run install.sh once per Hermes PROFILE — each profile pins its own
+    #      provider/model, and jobs created under that profile inherit it.
+    #   2. After install, pin the model with:  hermes cron edit "<name>"
+    # If a future Hermes version adds --model to the CLI, the branch below
+    # picks it up automatically so this stays forward-compatible.
+    if ${HERMES_BIN} cron create --help 2>&1 | grep -q -- '--model'; then
+        HERMES_HOME="${HERMES_HOME}" \
+        CHAT_ID="${CHAT_ID}" \
+        PROPOSAL_ONLY_AMEND="${PROPOSAL_ONLY_AMEND}" \
+        HERMES_BIN="${HERMES_BIN}" \
+        ${HERMES_BIN} cron create \
+            --name "${name}" \
+            --model "${model}" \
+            --provider "${provider}" \
+            --deliver "telegram:${CHAT_ID}" \
+            "${schedule}" "${prompt_body}"
+    else
+        echo "  WARNING: 'hermes cron create' has no --model flag on this Hermes version."
+        echo "           Job '${name}' will run under the active profile's default model."
+        echo "           To pin ${model} (${provider}): run install.sh under a dedicated"
+        echo "           Hermes profile, or run  ${HERMES_BIN} cron edit \"${name}\"  after install."
+        echo "           (anti-collusion requires MODEL_CRITIC != MODEL_EVOLUTION — see README)"
+        HERMES_HOME="${HERMES_HOME}" \
+        CHAT_ID="${CHAT_ID}" \
+        PROPOSAL_ONLY_AMEND="${PROPOSAL_ONLY_AMEND}" \
+        HERMES_BIN="${HERMES_BIN}" \
+        ${HERMES_BIN} cron create \
+            --name "${name}" \
+            --deliver "telegram:${CHAT_ID}" \
+            "${schedule}" "${prompt_body}"
+    fi
     echo "  CREATED: ${name}"
 }
 
